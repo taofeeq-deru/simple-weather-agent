@@ -1,12 +1,12 @@
-import { openai } from '@ai-sdk/openai';
-import { Agent } from '@mastra/core/agent';
-import { createStep, createWorkflow } from '@mastra/core/workflows';
-import { z } from 'zod';
+import { openai } from "@ai-sdk/openai";
+import { Agent } from "@mastra/core/agent";
+import { createStep, createWorkflow } from "@mastra/core/workflows";
+import { z } from "zod";
 
-const llm = openai('gpt-4o');
+const llm = openai("gpt-4o");
 
 const agent = new Agent({
-  name: 'Weather Agent',
+  name: "Weather Agent",
   model: llm,
   instructions: `
         You are a local activities and travel expert who excels at weather-based planning. Analyze the weather data and provide practical activity recommendations.
@@ -50,7 +50,7 @@ const agent = new Agent({
         - Keep descriptions concise but informative
 
         Maintain this exact formatting for consistency, using the emoji and section headers as shown.
-      `,
+      `
 });
 
 const forecastSchema = z.object({
@@ -59,44 +59,46 @@ const forecastSchema = z.object({
   minTemp: z.number(),
   precipitationChance: z.number(),
   condition: z.string(),
-  location: z.string(),
+  location: z.string()
 });
 
 function getWeatherCondition(code: number): string {
   const conditions: Record<number, string> = {
-    0: 'Clear sky',
-    1: 'Mainly clear',
-    2: 'Partly cloudy',
-    3: 'Overcast',
-    45: 'Foggy',
-    48: 'Depositing rime fog',
-    51: 'Light drizzle',
-    53: 'Moderate drizzle',
-    55: 'Dense drizzle',
-    61: 'Slight rain',
-    63: 'Moderate rain',
-    65: 'Heavy rain',
-    71: 'Slight snow fall',
-    73: 'Moderate snow fall',
-    75: 'Heavy snow fall',
-    95: 'Thunderstorm',
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Foggy",
+    48: "Depositing rime fog",
+    51: "Light drizzle",
+    53: "Moderate drizzle",
+    55: "Dense drizzle",
+    61: "Slight rain",
+    63: "Moderate rain",
+    65: "Heavy rain",
+    71: "Slight snow fall",
+    73: "Moderate snow fall",
+    75: "Heavy snow fall",
+    95: "Thunderstorm"
   };
-  return conditions[code] || 'Unknown';
+  return conditions[code] || "Unknown";
 }
 
 const fetchWeather = createStep({
-  id: 'fetch-weather',
-  description: 'Fetches weather forecast for a given city',
+  id: "fetch-weather",
+  description: "Fetches weather forecast for a given city",
   inputSchema: z.object({
-    city: z.string().describe('The city to get the weather for'),
+    city: z.string().describe("The city to get the weather for")
   }),
   outputSchema: forecastSchema,
   execute: async ({ inputData }) => {
     if (!inputData) {
-      throw new Error('Input data not found');
+      throw new Error("Input data not found");
     }
 
-    const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(inputData.city)}&count=1`;
+    const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+      inputData.city
+    )}&count=1`;
     const geocodingResponse = await fetch(geocodingUrl);
     const geocodingData = (await geocodingResponse.json()) as {
       results: { latitude: number; longitude: number; name: string }[];
@@ -127,40 +129,45 @@ const fetchWeather = createStep({
       maxTemp: Math.max(...data.hourly.temperature_2m),
       minTemp: Math.min(...data.hourly.temperature_2m),
       condition: getWeatherCondition(data.current.weathercode),
-      precipitationChance: data.hourly.precipitation_probability.reduce((acc, curr) => Math.max(acc, curr), 0),
-      location: inputData.city,
+      precipitationChance: data.hourly.precipitation_probability.reduce(
+        (acc, curr) => Math.max(acc, curr),
+        0
+      ),
+      location: inputData.city
     };
 
     return forecast;
-  },
+  }
 });
 
 const planActivities = createStep({
-  id: 'plan-activities',
-  description: 'Suggests activities based on weather conditions',
+  id: "plan-activities",
+  description: "Suggests activities based on weather conditions",
   inputSchema: forecastSchema,
   outputSchema: z.object({
-    activities: z.string(),
+    activities: z.string()
   }),
   execute: async ({ inputData }) => {
     const forecast = inputData;
 
     if (!forecast) {
-      throw new Error('Forecast data not found');
+      throw new Error("Forecast data not found");
     }
 
-    const prompt = `Based on the following weather forecast for ${forecast.location}, suggest appropriate activities:
+    const prompt = `Based on the following weather forecast for ${
+      forecast.location
+    }, suggest appropriate activities:
       ${JSON.stringify(forecast, null, 2)}
       `;
 
     const response = await agent.stream([
       {
-        role: 'user',
-        content: prompt,
-      },
+        role: "user",
+        content: prompt
+      }
     ]);
 
-    let activitiesText = '';
+    let activitiesText = "";
 
     for await (const chunk of response.textStream) {
       process.stdout.write(chunk);
@@ -168,22 +175,81 @@ const planActivities = createStep({
     }
 
     return {
-      activities: activitiesText,
+      activities: activitiesText
     };
-  },
+  }
 });
 
+const planActivitiesForLowPrecipitation = createStep({
+  id: "plan-activities-for-low-precipitation",
+  description: "Suggests activities based on weather conditions",
+  inputSchema: forecastSchema,
+  outputSchema: z.object({
+    activities: z.string()
+  }),
+  execute: async ({ inputData }) => {
+    const forecast = inputData;
+
+    if (!forecast) {
+      throw new Error("Forecast data not found");
+    }
+
+    const prompt = `Based on the following weather forecast for ${
+      forecast.location
+    }, suggest appropriate activities:
+      ${JSON.stringify(forecast, null, 2)}
+      `;
+
+    const response = await agent.stream([
+      {
+        role: "user",
+        content: prompt
+      }
+    ]);
+
+    let activitiesText = "";
+
+    for await (const chunk of response.textStream) {
+      process.stdout.write(chunk);
+      activitiesText += chunk;
+    }
+
+    return {
+      activities: activitiesText
+    };
+  }
+});
+
+const planActivitiesForHighPrecipitation = createWorkflow({
+  id: "plan-activities-for-high-precipitation",
+  inputSchema: forecastSchema,
+  outputSchema: z.object({
+    activities: z.string()
+  })
+})
+  .then(planActivities)
+  .commit();
+
 const weatherWorkflow = createWorkflow({
-  id: 'weather-workflow',
+  id: "weather-workflow",
   inputSchema: z.object({
-    city: z.string().describe('The city to get the weather for'),
+    city: z.string().describe("The city to get the weather for")
   }),
   outputSchema: z.object({
-    activities: z.string(),
-  }),
+    activities: z.string()
+  })
 })
   .then(fetchWeather)
-  .then(planActivities);
+  .branch([
+    [
+      async ({ inputData }) => inputData.precipitationChance > 30,
+      planActivitiesForHighPrecipitation
+    ],
+    [
+      async ({ inputData }) => inputData.precipitationChance <= 30,
+      planActivitiesForLowPrecipitation
+    ]
+  ]);
 
 weatherWorkflow.commit();
 
