@@ -1,13 +1,21 @@
-import { Mastra } from '@mastra/core/mastra';
-import { PinoLogger } from '@mastra/loggers';
-import { weatherWorkflow } from './workflows';
-import { weatherAgent } from './agents';
+import { Mastra } from "@mastra/core/mastra";
+import { PinoLogger } from "@mastra/loggers";
+import { weatherWorkflow } from "./workflows";
+import { weatherAgent } from "./agents";
+import { LibSQLStore } from "@mastra/libsql";
+
+const storage = new LibSQLStore({
+  url: process.env.TURSO_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+  id: "mastra-storage"
+});
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow },
   agents: { weatherAgent },
   logger: new PinoLogger({
-    name: 'Mastra',
-    level: 'info',
+    name: "Mastra",
+    level: "info"
   }),
+  storage
 });

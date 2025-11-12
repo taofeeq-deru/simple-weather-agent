@@ -13,14 +13,18 @@
   "description": "One Agent, one Workflow and one Tool to bring you the weather in your city.",
   "type": "module",
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.58",
-    "@mastra/core": "latest",
-    "@mastra/loggers": "latest",
+    "@ai-sdk/openai": "^2.0.55",
+    "@mastra/client-js": "1.0.0-beta.2",
+    "@mastra/core": "0.0.0-add-stepgraph-to-run-exec-result-20251112113541",
+    "@mastra/libsql": "1.0.0-beta.0",
+    "@mastra/loggers": "1.0.0-beta.0",
+    "@mastra/memory": "1.0.0-beta.0",
     "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",
-    "mastra": "latest",
+    "mastra": "1.0.0-beta.1",
     "typescript": "^5.8.3"
-  }
+  },
+  "packageManager": "pnpm@10.21.0+sha512.da3337267e400fdd3d479a6c68079ac6db01d8ca4f67572083e722775a796788a7a9956613749e000fac20d424b594f7a791a5f4e2e13581c5ef947f26968a40"
 }
